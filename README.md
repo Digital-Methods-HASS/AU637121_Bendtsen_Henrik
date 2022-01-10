@@ -10,6 +10,8 @@ Dataset link.docx
 
 Link Googlesheet: https://docs.google.com/spreadsheets/d/1ZXTPnQzmwdofxDXb3jx6Ol6LQ1UroTVyfG9_ebfWBe0/edit#gid=0
 
+The repository also contains 2 homeworks: Assignment_ mapping & EuropeanHomicide - Homework.
+
 Please read the License file.
 
 Datamanager: Henrik Hänel Bendtsen,
