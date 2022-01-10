@@ -1,0 +1,189 @@
+---
+author: "Henrik Hänel Bendtsen" 
+title: "Digital Methods: World War 1 casualties"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Libraries
+
+```{r}
+library(tidyverse)
+library(googlesheets4)
+library(leaflet)
+library(leaflet)
+library(htmlwidgets)
+```
+
+## In this project i am going to create a map that shows where Danish WW1 causalties, with connection to Nustrup Parish, died under The Great War. 
+
+### First, i want to show the basics in working with maps. Next, I am going to read in a dataset which contains informations about the casualties, from Nustrup parish, in addition to create a final map where it is possible to see these persons names, where they died, how they died, and how old they were.
+
+### This map will be created with the leaflet function. This allows me to use some widgets, as addTiles and addProviderTiles, which allows me to add map tiles. In this case i am using the Esri World Imagery.
+```{r}
+leaflet() %>%
+  addTiles() %>%                              # add default OpenStreetMap map tiles
+  addProviderTiles("Esri.WorldImagery",       # add custom Esri World Physical map tiles
+                   options = providerTileOptions(opacity=0.5)) %>%     # make the Esri tile transparent
+  setView(lng = 5.385524, lat = 49.156220, zoom = 6)              # set the location of the map.
+
+WW1_map <- leaflet() %>%   # assign the base location to an object. In this case it is Verdun, France.
+  setView(5.385524, 49.156220, zoom = 6)
+esri <- grep("^Esri", providers, value = TRUE)
+for (provider in esri) {
+  WW1_map <- WW1_map %>% addProviderTiles(provider, group = provider)
+}
+```
+
+### Now i am able to "develop" my map. I am adding widgets and describing the map, giving it more layers. For example, the addMeasure function allows me to edit in the map display, colors, lenght unit etc. 
+
+```{r}
+Europe <- WW1_map %>% addLayersControl(baseGroups = names(esri),
+                                        options = layersControlOptions(collapsed = FALSE)) %>%
+  addMiniMap(tiles = esri[[1]], toggleDisplay = TRUE,
+             position = "bottomright") %>%
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479") %>% 
+  htmlwidgets::onRender("
+                        function(el, x) {
+                        var myMap = this;
+                        myMap.on('baselayerchange',
+                        function (e) {
+                        myMap.minimap.changeLayer(L.tileLayer.provider(e.name));
+                        })
+                        }") %>% 
+  addControl("", position = "topright")
+```
+
+### These changes gives us this result.
+
+```{r}
+Europe
+```
+
+
+## Read in the dataset from googlesheet 
+
+### Now i am reading in the dataset, which contains all the information about the persons, with connection to Nustrup parish, which died under the war. 
+
+### Libraries
+
+```{r}
+library(tidyverse)
+library(googlesheets4)
+library(leaflet)
+```
+
+### The gs4_deauth function is necessary in order to gain acces to the dataset. 
+
+```{r}
+gs4_deauth()
+```
+
+### Now, read in the sheet.
+
+### The sheet is now called: places. col_types is for describing the colum types, character or numeric. glimpse function allows us to get the maximum of data, just as we can see below.
+
+#### Every error shown below is detected from the datasheet. It does not have any influence on creating this map. The error is only comming from a variable in the sheet which is called "Coordinates", and it does not influence because i am not working with this specific variable.
+
+
+```{r}
+places <- read_sheet("https://docs.google.com/spreadsheets/d/1ZXTPnQzmwdofxDXb3jx6Ol6LQ1UroTVyfG9_ebfWBe0/edit#gid=0",
+                     col_types = "ccnnncc")
+glimpse(places)
+```
+
+### Now i am going to use the googlesheet dataset, called places to include the information about the casualties into the final map. If we are now looking at the map below, there are a lot of icons showing. These are the locations of every single casualty with connection to Nustrup parish, which fell under WW1. These icons are appearing due to the addMarkers lng and lat, which allows me to include the longitude and latitude from the googlesheet.
+
+### Furthermore, the names appearing on the icons are showing because of the popup function.
+
+
+```{r}
+leaflet() %>% 
+  addTiles() %>% 
+  addMarkers(lng = places$Longitude, 
+             lat = places$Latitude,
+             popup = places$Navn)
+```
+
+###  assign the base location to an object.
+
+```{r}
+Europe <- leaflet() %>% 
+  setView(5.391672, 49.159204, zoom = 5)
+```
+
+### Again, just as seen above in the fourth chunk, i am developing the map. But now i am adding the coordinates from the googlesheet, which allows us to see a lot of icons, showing the WW1 casualties from Nustrup parish.
+
+
+```{r}
+for (provider in esri) {
+  Europe <- Europe %>% addProviderTiles(provider, group = provider)
+}
+```
+
+```{r}
+Europe <- WW1_map %>% addLayersControl(baseGroups = names(esri),
+                                        options = layersControlOptions(collapsed = FALSE)) %>%
+  addMiniMap(tiles = esri[[1]], toggleDisplay = TRUE,
+             position = "bottomright") %>%
+  addMarkers(places, lat=places$Latitude, lng = places$Longitude) %>% 
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479") %>% 
+  htmlwidgets::onRender("
+                        function(el, x) {
+                        var myMap = this;
+                        myMap.on('baselayerchange',
+                        function (e) {
+                        myMap.minimap.changeLayer(L.tileLayer.provider(e.name));
+                        })
+                        }") %>% 
+  addControl("", position = "topright")
+```
+
+```{r}
+Europe
+```
+
+
+## Cluster and adding information.
+
+### Finally, i am going to cluster all the observations and adding some basic information to them. 
+
+### Clustering in the map is done with the clusterOptions function. This provides a more delightful presentation and is way clearer to look at, creating an overview.
+
+### As i have shown above, the popup function gives me the possibility to grant the observations some information, when clicking on them. For instance, when writing "places$Navn" in the chunk below, i am working directly in the googlesheet, getting information about the casualties names.
+
+```{r}
+Europe %>% 
+  leaflet() %>%
+  addTiles() %>% 
+  addMarkers(lng = places$Longitude, 
+             lat = places$Latitude,
+             popup = paste("<strong>Navn: </strong>",places$Navn,"<br><strong>Manner of death: </strong>",places$`Manner of death`,"<br><strong>Age: </strong>",places$Age,"<br><strong>Death place: </strong>",places$`Death place`),
+             clusterOptions = markerClusterOptions())
+```
+
+
+## This is the final map which creates a visualization over the World War 1 casualties from Nustrup parish. 
+
+### It is presented in a way where it is easy to see the areas where these persons died in the war. The observations (persons) are clustered which gives a clean overview, and the icons are provided with basic information concerning everyone. 
+
+
+
+
+
+
+
